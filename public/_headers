@@ -1,0 +1,5 @@
+/*
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; media-src 'self' blob:; connect-src https://api.openai.com wss://api.openai.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Permissions-Policy: microphone=(self), camera=(), geolocation=()
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Scan the commits about to be pushed for secrets. Blocks the push on a finding.
+set -euo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-push: gitleaks is not installed; push blocked (brew install gitleaks)" >&2
+  exit 1
+fi
+
+zero=0000000000000000000000000000000000000000
+
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue  # branch deletion
+
+  if [ "$remote_sha" = "$zero" ]; then
+    range="$local_sha --not --remotes"    # new branch: everything not yet on a remote
+  else
+    range="$remote_sha..$local_sha"
+  fi
+
+  gitleaks git --no-banner --redact --log-opts="$range" .
+done
