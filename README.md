@@ -38,13 +38,19 @@ npm run build   # wrangler dev は dist/ を必要とします
 
 ## デプロイ
 
-配信先は Cloudflare Workers の静的アセットで、定義は `wrangler.jsonc` と `.github/workflows/ci.yml` にあります。
+配信先は Cloudflare Workers で、定義は `wrangler.jsonc` と `.github/workflows/deploy.yml` にあります。
+PR では `ci.yml` がテストとビルドを、`main` にマージ（push）すると `deploy.yml` がテスト・ビルド・デプロイを行います。
+Actions の画面から手動で実行（workflow_dispatch）することもできます。
 
-1. Cloudflare の API トークン（Workers Scripts の編集権限）を作成する
+1. Cloudflare の API トークンを「Edit Cloudflare Workers」テンプレートで作成する
 2. リポジトリの Actions secrets に `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` を登録する
-3. リポジトリの Actions variables に `CLOUDFLARE_DEPLOY=true` を登録する
 
-以降は `main` / `master` への push で自動デプロイされます。
+```sh
+gh secret set CLOUDFLARE_API_TOKEN      # 貼り付けて Enter
+gh secret set CLOUDFLARE_ACCOUNT_ID
+```
+
+secrets が無いと、デプロイは最初のステップで失敗し、足りない名前を表示します。
 
 初回だけ、Worker の Secret を登録します（Secret はデプロイしても消えません）。
 
