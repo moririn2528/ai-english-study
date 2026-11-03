@@ -1,10 +1,13 @@
 {
-  // Static-only deployment: Cloudflare Workers static assets, no server code.
+  // Static assets plus a small Worker that relays OpenAI calls under /api/* (worker/index.ts).
+  // Secrets (not in this file): OPENAI_API_KEY, ACCESS_TEAM_DOMAIN, ACCESS_AUD — see README.md.
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "ai-english-study",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
   }
 }

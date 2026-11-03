@@ -7,7 +7,7 @@ import type { ReviewItem } from "../lib/types";
 import { ScoreView, Status, useRecorder, useSpeak, useTask, type ViewProps } from "./shared";
 
 export function ReviewView(props: ViewProps) {
-  const { apiKey, settings } = props;
+  const { settings } = props;
   const [queue, setQueue] = useState<ReviewItem[]>([]);
   const [total, setTotal] = useState(0);
   const [result, setResult] = useState<SentenceScore | null>(null);
@@ -53,7 +53,7 @@ export function ReviewView(props: ViewProps) {
             className="primary"
             onClick={() =>
               task.run("採点中", async () => {
-                const r = await scoreAttempt(apiKey, item.text, await rec.stop(), settings, languageCode(item.language));
+                const r = await scoreAttempt(item.text, await rec.stop(), settings, languageCode(item.language));
                 await saveReview(applyScore(item, r.score, new Date()));
                 setResult(r);
               })

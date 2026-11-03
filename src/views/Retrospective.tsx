@@ -5,7 +5,7 @@ import { analyzeConversation, MAX_UPLOAD_BYTES, reviewSentencesFor } from "../li
 import type { Retro } from "../lib/types";
 import { addReviews, Status, useRecorder, useTask, type ViewProps } from "./shared";
 
-export function RetrospectiveView({ apiKey, settings }: ViewProps) {
+export function RetrospectiveView({ settings }: ViewProps) {
   const [retros, setRetros] = useState<Retro[]>([]);
   const [retro, setRetro] = useState<Retro | null>(null);
   const [learnerHint, setLearnerHint] = useState("");
@@ -22,8 +22,8 @@ export function RetrospectiveView({ apiKey, settings }: ViewProps) {
   const analyze = (audio: Blob) =>
     task.run("文字起こしと分析の実行中", async () => {
       if (audio.size > MAX_UPLOAD_BYTES) throw new Error("25MB を超える音声は処理できません");
-      const transcript = await transcribe(apiKey, audio, settings.language);
-      const analysis = await analyzeConversation(apiKey, transcript, learnerHint, settings);
+      const transcript = await transcribe(audio, settings.language);
+      const analysis = await analyzeConversation(transcript, learnerHint, settings);
       const r: Retro = { id: crypto.randomUUID(), createdAt: Date.now(), transcript, ...analysis };
       await saveRetro(r);
       setRetros((prev) => [r, ...prev]);
@@ -113,7 +113,7 @@ export function RetrospectiveView({ apiKey, settings }: ViewProps) {
       <button
         disabled={!intended.trim() || !!task.busy}
         onClick={() =>
-          task.run("復習文を作成中", async () => setExtra(await reviewSentencesFor(apiKey, intended, settings)))
+          task.run("復習文を作成中", async () => setExtra(await reviewSentencesFor(intended, settings)))
         }
       >
         復習文を作る

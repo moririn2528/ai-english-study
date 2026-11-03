@@ -9,7 +9,7 @@ import { addReviews, Status, useRecorder, useSpeak, useTask, type ViewProps } fr
 const SILENCE_HINT_MS = 10_000;
 
 export function ConversationView(props: ViewProps) {
-  const { apiKey, settings } = props;
+  const { settings } = props;
   const [turns, setTurns] = useState<Turn[]>([]);
   const [round, setRound] = useState(0);
   const [hints, setHints] = useState<string[]>([]);
@@ -28,7 +28,7 @@ export function ConversationView(props: ViewProps) {
   };
 
   const say = async (action: "ask" | "answer" | "invite") => {
-    const text = await aiLine(apiKey, turnsRef.current, action, settings);
+    const text = await aiLine(turnsRef.current, action, settings);
     push({ speaker: "ai", text });
     await speak(text);
   };
@@ -36,7 +36,7 @@ export function ConversationView(props: ViewProps) {
   const showHint = async () => {
     if (hintLevel.current >= MAX_HINT) return;
     hintLevel.current += 1;
-    const text = await hint(apiKey, turnsRef.current, hintLevel.current, asker(roundRef.current) === "ai" ? "ai" : "learner", settings);
+    const text = await hint(turnsRef.current, hintLevel.current, asker(roundRef.current) === "ai" ? "ai" : "learner", settings);
     setHints((prev) => [...prev, text]);
   };
 
@@ -57,12 +57,12 @@ export function ConversationView(props: ViewProps) {
 
   const finish = async () => {
     const log = turnsRef.current.map((t) => `${t.speaker}: ${t.text}`).join("\n");
-    setFeedback(await sessionFeedback(apiKey, log, settings));
+    setFeedback(await sessionFeedback(log, settings));
     setRound(0);
   };
 
   const submit = async () => {
-    const spoken = (await transcribe(apiKey, await rec.stop(), settings.language)).trim();
+    const spoken = (await transcribe(await rec.stop(), settings.language)).trim();
     if (!spoken || isHintRequest(spoken)) {
       await showHint();
       await listen();

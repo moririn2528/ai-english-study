@@ -1,6 +1,6 @@
 # Cloudflare Access (Zero Trust) protection for the ai-english-study Worker.
 #
-# The Worker itself (static assets) is deployed by Wrangler (`npm run deploy`).
+# The Worker itself (static assets + /api relay) is deployed by Wrangler (`npm run deploy`).
 # This configuration only manages who may open it.
 #
 # Auth: export CLOUDFLARE_API_TOKEN before running terraform. See README.md.
@@ -60,4 +60,11 @@ resource "cloudflare_zero_trust_access_application" "app" {
     id         = cloudflare_zero_trust_access_policy.allowed_users.id
     precedence = 1
   }]
+}
+
+# The relay Worker verifies the Access JWT itself; register this as the Worker secret ACCESS_AUD.
+# The other secret, ACCESS_TEAM_DOMAIN, is the host of the Access login page (<team>.cloudflareaccess.com).
+# See ../README.md.
+output "access_aud" {
+  value = cloudflare_zero_trust_access_application.app.aud
 }
