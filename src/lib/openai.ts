@@ -1,13 +1,14 @@
 import { base64ToBytes, bytesToBase64, concatBytes, pcm16ToWav } from "./wav";
 
-const API = "https://api.openai.com/v1";
+/** Same-origin relay (worker/index.ts) that adds the API key on the server side. */
+const API = "/api/openai";
 
 export const MODELS = {
   text: "gpt-6-luna",
   transcribe: "gpt-transcribe",
   pronunciation: "gpt-audio-1.5",
   speech: "gpt-realtime-2.1-mini",
-  /** Shuts down 2027-01-06; only a fallback until the Realtime path is proven with a real key. */
+  /** Shuts down 2027-01-06; only a fallback until the Realtime path is proven. */
   legacySpeech: "gpt-4o-mini-tts",
 } as const;
 
@@ -20,10 +21,14 @@ export class OpenAIError extends Error {
   }
 }
 
-async function post(key: string, path: string, body: BodyInit, json = true): Promise<Response> {
-  const headers: Record<string, string> = { Authorization: `Bearer ${key}` };
+async function post(path: string, body: BodyInit, json = true): Promise<Response> {
+  const headers: Record<string, string> = {};
   if (json) headers["Content-Type"] = "application/json";
-  const res = await fetch(`${API}${path}`, { method: "POST", headers, body });
+  // An expired Access session answers with a redirect to the login page instead of the API.
+  const res = await fetch(`${API}${path}`, { method: "POST", headers, body, redirect: "manual" });
+  if (res.type === "opaqueredirect") {
+    throw new OpenAIError("ログインの有効期限が切れました。ページを再読み込みしてください", 401);
+  }
   if (res.ok) return res;
   const detail = await res.text().catch(() => "");
   let message = detail;
@@ -84,11 +89,9 @@ export interface JsonSchema {
 }
 
 export async function generateJson<T>(
-  key: string,
   opts: { instructions: string; input: string; schema: JsonSchema },
 ): Promise<T> {
   const res = await post(
-    key,
     "/responses",
     JSON.stringify({
       model: MODELS.text,
@@ -110,11 +113,9 @@ export async function generateJson<T>(
 
 /** Web search is not documented to combine with structured outputs, so JSON comes from the prompt. */
 export async function searchJson<T>(
-  key: string,
   opts: { instructions: string; input: string },
 ): Promise<{ data: T; sources: Source[] }> {
   const res = await post(
-    key,
     "/responses",
     JSON.stringify({
       model: MODELS.text,
@@ -144,7 +145,7 @@ export function languageCode(language: string): string | undefined {
   return LANGUAGE_CODES[language];
 }
 
-export async function transcribe(key: string, audio: Blob, language?: string): Promise<string> {
+export async function transcribe(audio: Blob, language?: string): Promise<string> {
   const form = () => {
     const f = new FormData();
     const recorded = audio.type.includes("mp4") ? "speech.m4a" : audio.type.includes("wav") ? "speech.wav" : "speech.webm";
@@ -156,12 +157,12 @@ export async function transcribe(key: string, audio: Blob, language?: string): P
   const first = form();
   if (code) first.append("languages[]", code);
   try {
-    const res = await post(key, "/audio/transcriptions", first, false);
+    const res = await post("/audio/transcriptions", first, false);
     return ((await res.json()) as { text: string }).text;
   } catch (e) {
     // The array field's multipart spelling is undocumented; the hint is optional, so drop it.
     if (!(e instanceof OpenAIError) || e.status !== 400 || !code) throw e;
-    const res = await post(key, "/audio/transcriptions", form(), false);
+    const res = await post("/audio/transcriptions", form(), false);
     return ((await res.json()) as { text: string }).text;
   }
 }
@@ -172,14 +173,12 @@ export interface PronunciationResult {
 }
 
 export async function evaluatePronunciation(
-  key: string,
   wav: Blob,
   target: string,
   nativeLanguage: string,
 ): Promise<PronunciationResult> {
   const data = bytesToBase64(new Uint8Array(await wav.arrayBuffer()));
   const res = await post(
-    key,
     "/chat/completions",
     JSON.stringify({
       model: MODELS.pronunciation,
@@ -217,13 +216,11 @@ function verbatimInstructions(language: string): string {
 }
 
 async function speechViaRealtime(
-  key: string,
   text: string,
   language: string,
   voice: string,
 ): Promise<Blob> {
   const res = await post(
-    key,
     "/realtime/client_secrets",
     JSON.stringify({
       session: {
@@ -291,9 +288,8 @@ async function speechViaRealtime(
   return new Blob([wav.buffer as ArrayBuffer], { type: "audio/wav" });
 }
 
-async function speechViaLegacyApi(key: string, text: string, voice: string): Promise<Blob> {
+async function speechViaLegacyApi(text: string, voice: string): Promise<Blob> {
   const res = await post(
-    key,
     "/audio/speech",
     JSON.stringify({ model: MODELS.legacySpeech, input: text, voice, response_format: "mp3" }),
   );
@@ -306,16 +302,15 @@ export interface Speech {
 }
 
 export async function synthesize(
-  key: string,
   text: string,
   language: string,
   voice: string,
 ): Promise<Speech> {
   try {
-    return { audio: await speechViaRealtime(key, text, language, voice), via: "realtime" };
+    return { audio: await speechViaRealtime(text, language, voice), via: "realtime" };
   } catch (realtimeError) {
     try {
-      return { audio: await speechViaLegacyApi(key, text, voice), via: "legacy" };
+      return { audio: await speechViaLegacyApi(text, voice), via: "legacy" };
     } catch {
       throw realtimeError;
     }

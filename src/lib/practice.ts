@@ -51,13 +51,12 @@ export function preferencePrompt(votes: Vote[]): string {
 }
 
 export async function findCandidates(
-  key: string,
   s: Settings,
   votes: Vote[],
   exclude: string[],
 ): Promise<Candidate[]> {
   const interests = s.interests.trim() || "technology, culture, and everyday life";
-  const { data } = await searchJson<{ candidates: Partial<Candidate>[] }>(key, {
+  const { data } = await searchJson<{ candidates: Partial<Candidate>[] }>({
     instructions:
       `You recommend reading material for language learners. ${profile(s)} ` +
       `Use web search to find ${CANDIDATE_COUNT} real articles written in the target language and published ` +
@@ -102,8 +101,8 @@ interface Article {
   sentences: string[];
 }
 
-export async function buildMaterial(key: string, s: Settings, c: Candidate): Promise<Material> {
-  const { data, sources } = await searchJson<Article>(key, {
+export async function buildMaterial(s: Settings, c: Candidate): Promise<Material> {
+  const { data, sources } = await searchJson<Article>({
     instructions:
       `You create shadowing scripts for language learners. ${profile(s)} ` +
       `Use web search to read the given article. Rewrite its content in your own words as 8 to 12 sentences ` +
@@ -137,17 +136,16 @@ export interface SentenceScore {
 }
 
 export async function scoreAttempt(
-  key: string,
   target: string,
   recording: Blob,
   s: Settings,
   locale?: string,
 ): Promise<SentenceScore> {
   // Transcribed without the target as a prompt: a hint would mask what was actually said.
-  const spoken = await transcribe(key, recording, s.language);
+  const spoken = await transcribe(recording, s.language);
   const match = matchScore(target, spoken, locale);
   const pronunciation = await toWav(recording)
-    .then((wav) => evaluatePronunciation(key, wav, target, s.nativeLanguage))
+    .then((wav) => evaluatePronunciation(wav, target, s.nativeLanguage))
     .catch(() => null);
   return {
     spoken,
@@ -163,8 +161,8 @@ export interface SessionFeedback {
   reviewSentences: string[];
 }
 
-export function sessionFeedback(key: string, log: string, s: Settings): Promise<SessionFeedback> {
-  return generateJson<SessionFeedback>(key, {
+export function sessionFeedback(log: string, s: Settings): Promise<SessionFeedback> {
+  return generateJson<SessionFeedback>({
     instructions:
       `You are a language coach. ${profile(s)} From the practice log, give up to 3 concise points ` +
       `to watch out for, written in the native language, and 3 to 5 short review sentences in the target ` +
@@ -192,7 +190,6 @@ const transcriptOf = (turns: Turn[]) =>
   turns.map((t) => `${t.speaker === "ai" ? "AI" : "Learner"}: ${t.text}`).join("\n") || "(start)";
 
 export async function aiLine(
-  key: string,
   turns: Turn[],
   action: "ask" | "answer" | "invite",
   s: Settings,
@@ -203,7 +200,7 @@ export async function aiLine(
     invite: "React in one short sentence, then invite the learner to ask you a question.",
   }[action];
   const interests = s.interests.trim();
-  const { text } = await generateJson<{ text: string }>(key, {
+  const { text } = await generateJson<{ text: string }>({
     instructions:
       `You are a conversation partner. ${profile(s)} ` +
       (interests ? `Learner's interests: ${interests}. ` : "") +
@@ -226,14 +223,13 @@ export function isHintRequest(spoken: string): boolean {
 }
 
 export async function hint(
-  key: string,
   turns: Turn[],
   level: number,
   speaker: Speaker,
   s: Settings,
 ): Promise<string> {
   const goal = speaker === "ai" ? "answer the AI's question" : "ask the AI a question";
-  const { text } = await generateJson<{ text: string }>(key, {
+  const { text } = await generateJson<{ text: string }>({
     instructions:
       `Help a stuck language learner ${goal}. ${profile(s)} ` +
       `${HINT_STYLES[Math.min(level, MAX_HINT) - 1]}`,
@@ -249,12 +245,11 @@ export interface RetroAnalysis {
 }
 
 export async function analyzeConversation(
-  key: string,
   transcript: string,
   learnerHint: string,
   s: Settings,
 ): Promise<RetroAnalysis> {
-  const result = await generateJson<RetroAnalysis>(key, {
+  const result = await generateJson<RetroAnalysis>({
     instructions:
       `You review a real conversation for a language learner. ${profile(s)} ` +
       `The transcript has no speaker labels, so infer who the learner is from context` +
@@ -278,11 +273,10 @@ export async function analyzeConversation(
 }
 
 export async function reviewSentencesFor(
-  key: string,
   intended: string,
   s: Settings,
 ): Promise<string[]> {
-  const { sentences } = await generateJson<{ sentences: string[] }>(key, {
+  const { sentences } = await generateJson<{ sentences: string[] }>({
     instructions:
       `The learner explains what they wanted to say. ${profile(s)} ` +
       `Write exactly 3 natural, short sentences in the target language that say it or train the same phrasing.`,

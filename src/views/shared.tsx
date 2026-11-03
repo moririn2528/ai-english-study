@@ -8,7 +8,6 @@ import type { Settings } from "../lib/types";
 import type { SentenceScore } from "../lib/practice";
 
 export interface ViewProps {
-  apiKey: string;
   settings: Settings;
 }
 
@@ -39,11 +38,11 @@ export function Status({ busy, error }: { busy: string; error: string }) {
   );
 }
 
-export function useSpeak({ apiKey, settings }: ViewProps) {
+export function useSpeak({ settings }: ViewProps) {
   return useCallback(
     async (text: string) =>
-      play(await speechFor(apiKey, text, settings.language, settings.voice)),
-    [apiKey, settings.language, settings.voice],
+      play(await speechFor(text, settings.language, settings.voice)),
+    [settings.language, settings.voice],
   );
 }
 

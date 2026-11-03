@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import { exportBackup, importBackup, type Backup } from "../lib/db";
-import { isKeyRemembered, saveKey } from "../lib/key";
 import { generateJson, MODELS, synthesize, transcribe, evaluatePronunciation } from "../lib/openai";
 import { LEVELS } from "../lib/level";
 import type { Settings } from "../lib/types";
@@ -16,7 +15,7 @@ interface Check {
   detail: string;
 }
 
-async function runChecks(key: string, s: Settings, report: (c: Check) => void) {
+async function runChecks(s: Settings, report: (c: Check) => void) {
   const attempt = async <T,>(name: string, fn: () => Promise<[T, string]>): Promise<T | null> => {
     try {
       const [value, detail] = await fn();
@@ -28,7 +27,7 @@ async function runChecks(key: string, s: Settings, report: (c: Check) => void) {
     }
   };
   await attempt("文章生成", async () => {
-    await generateJson(key, {
+    await generateJson({
       instructions: "Reply with ok set to true.",
       input: "ping",
       schema: {
@@ -44,36 +43,29 @@ async function runChecks(key: string, s: Settings, report: (c: Check) => void) {
     return [true, MODELS.text];
   });
   const speech = await attempt("音声合成", async () => {
-    const result = await synthesize(key, "This is a connection test.", "English", s.voice);
+    const result = await synthesize("This is a connection test.", "English", s.voice);
     const model = result.via === "realtime" ? MODELS.speech : `${MODELS.legacySpeech}（代替。2027-01-06 終了）`;
     return [result.audio, model];
   });
   if (!speech) return;
-  await attempt("文字起こし", async () => [true, await transcribe(key, speech, "English")]);
+  await attempt("文字起こし", async () => [true, await transcribe(speech, "English")]);
   if (speech.type === "audio/wav") {
     await attempt("発音評価", async () => {
-      const r = await evaluatePronunciation(key, speech, "This is a connection test.", s.nativeLanguage);
+      const r = await evaluatePronunciation(speech, "This is a connection test.", s.nativeLanguage);
       return [true, `${MODELS.pronunciation}: ${r.score} 点`];
     });
   }
 }
 
-export function SettingsView({ apiKey, onKey, settings, onSettings }: {
-  apiKey: string;
-  onKey: (k: string) => void;
+export function SettingsView({ settings, onSettings }: {
   settings: Settings;
   onSettings: (s: Settings) => void;
 }) {
-  const [remember, setRemember] = useState(isKeyRemembered);
   const [checks, setChecks] = useState<Check[]>([]);
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState("");
   const file = useRef<HTMLInputElement>(null);
 
-  const setKey = (key: string, rem = remember) => {
-    onKey(key);
-    saveKey(key, rem);
-  };
   const set = <K extends keyof Settings>(k: K, v: Settings[K]) => onSettings({ ...settings, [k]: v });
 
   const download = async () => {
@@ -97,39 +89,17 @@ export function SettingsView({ apiKey, onKey, settings, onSettings }: {
 
   return (
     <section>
-      <h2>OpenAI API キー</h2>
+      <h2>OpenAI 接続</h2>
       <p className="muted">
-        キーはこのブラウザにのみ保存し、OpenAI 以外には送りません。漏えいに備えて、この用途専用の
-        プロジェクトキーを作り、支出上限と有効期限を設定してください。
+        API キーはサーバー（Cloudflare）側に保存されていて、このブラウザには届きません。
+        ログインしている間だけ、サーバー経由で OpenAI を呼び出します。
       </p>
-      <label>
-        API キー
-        <input
-          type="password"
-          autoComplete="off"
-          spellCheck={false}
-          value={apiKey}
-          placeholder="sk-..."
-          onChange={(e) => setKey(e.target.value.trim())}
-        />
-      </label>
-      <label className="check">
-        <input
-          type="checkbox"
-          checked={remember}
-          onChange={(e) => {
-            setRemember(e.target.checked);
-            setKey(apiKey, e.target.checked);
-          }}
-        />
-        ブラウザを閉じても保持する（共有端末では使わないでください）
-      </label>
       <button
-        disabled={!apiKey || testing}
+        disabled={testing}
         onClick={async () => {
           setChecks([]);
           setTesting(true);
-          await runChecks(apiKey, settings, (c) => setChecks((prev) => [...prev, c]));
+          await runChecks(settings, (c) => setChecks((prev) => [...prev, c]));
           setTesting(false);
         }}
       >

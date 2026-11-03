@@ -13,7 +13,7 @@ import type { Attempt, Candidate, Material, Vote } from "../lib/types";
 import { addReviews, ScoreView, Status, useRecorder, useSpeak, useTask, type ViewProps } from "./shared";
 
 export function ShadowingView(props: ViewProps) {
-  const { apiKey, settings } = props;
+  const { settings } = props;
   const [materials, setMaterials] = useState<Material[]>([]);
   const [material, setMaterial] = useState<Material | null>(null);
   const [index, setIndex] = useState(0);
@@ -42,7 +42,7 @@ export function ShadowingView(props: ViewProps) {
   const search = () =>
     task.run("記事の候補を探し中", async () => {
       const exclude = [...seen, ...candidates.map((c) => c.url), ...votes.map((v) => v.url)];
-      const found = await findCandidates(apiKey, leveled, votes, [...new Set(exclude)]);
+      const found = await findCandidates(leveled, votes, [...new Set(exclude)]);
       const nextSeen = [...seen, ...found.map((c) => c.url)];
       setCandidates(found);
       setSeen(nextSeen);
@@ -60,7 +60,7 @@ export function ShadowingView(props: ViewProps) {
 
   const choose = (c: Candidate) =>
     task.run("記事を読んで教材を作成中", async () => {
-      const m = await buildMaterial(apiKey, leveled, c);
+      const m = await buildMaterial(leveled, c);
       await saveMaterial(m);
       setMaterials((prev) => [m, ...prev]);
       open(m);
@@ -146,7 +146,7 @@ export function ShadowingView(props: ViewProps) {
             className="primary"
             onClick={() =>
               task.run("採点中", async () => {
-                const r = await scoreAttempt(apiKey, sentence, await rec.stop(), settings, languageCode(material.language));
+                const r = await scoreAttempt(sentence, await rec.stop(), settings, languageCode(material.language));
                 setResults((prev) => ({ ...prev, [index]: r }));
                 setAttempts(await addAttempt({
                   at: Date.now(),
@@ -178,7 +178,7 @@ export function ShadowingView(props: ViewProps) {
               const log = Object.entries(results)
                 .map(([i, r]) => `Target: ${material.sentences[Number(i)]}\nSaid: ${r.spoken}\nScore: ${r.score}`)
                 .join("\n\n");
-              setFeedback(await sessionFeedback(apiKey, log, settings));
+              setFeedback(await sessionFeedback(log, settings));
             })
           }
         >

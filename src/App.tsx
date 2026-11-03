@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { loadSettings, loadReviews, saveSettings } from "./lib/db";
-import { loadKey } from "./lib/key";
 import { isDue } from "./lib/srs";
 import { DEFAULT_SETTINGS, type Settings } from "./lib/types";
 import { ConversationView } from "./views/Conversation";
@@ -19,8 +18,7 @@ const TABS = [
 type Tab = (typeof TABS)[number][0];
 
 export function App() {
-  const [tab, setTab] = useState<Tab>(loadKey() ? "review" : "settings");
-  const [apiKey, setApiKey] = useState(loadKey);
+  const [tab, setTab] = useState<Tab>("review");
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [due, setDue] = useState(0);
 
@@ -36,7 +34,6 @@ export function App() {
     void saveSettings(s);
   };
 
-  const ready = apiKey !== "";
   return (
     <div className="app">
       <header>
@@ -51,23 +48,16 @@ export function App() {
         </nav>
       </header>
       <main>
-        {tab !== "settings" && !ready ? (
-          <p className="notice">先に「設定」で OpenAI の API キーを入力してください。</p>
-        ) : tab === "settings" ? (
-          <SettingsView
-            apiKey={apiKey}
-            onKey={setApiKey}
-            settings={settings}
-            onSettings={updateSettings}
-          />
+        {tab === "settings" ? (
+          <SettingsView settings={settings} onSettings={updateSettings} />
         ) : tab === "review" ? (
-          <ReviewView apiKey={apiKey} settings={settings} />
+          <ReviewView settings={settings} />
         ) : tab === "shadowing" ? (
-          <ShadowingView apiKey={apiKey} settings={settings} />
+          <ShadowingView settings={settings} />
         ) : tab === "conversation" ? (
-          <ConversationView apiKey={apiKey} settings={settings} />
+          <ConversationView settings={settings} />
         ) : (
-          <RetrospectiveView apiKey={apiKey} settings={settings} />
+          <RetrospectiveView settings={settings} />
         )}
       </main>
     </div>

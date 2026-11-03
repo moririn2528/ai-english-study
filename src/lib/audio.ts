@@ -84,7 +84,6 @@ async function speechId(text: string, language: string, voice: string): Promise<
 
 /** Each sentence is synthesised once, then replayed from IndexedDB at no cost. */
 export async function speechFor(
-  key: string,
   text: string,
   language: string,
   voice: string,
@@ -92,7 +91,7 @@ export async function speechFor(
   const id = await speechId(text, language, voice);
   const cached = await loadSpeech(id);
   if (cached) return cached;
-  const { audio } = await synthesize(key, text, language, voice);
+  const { audio } = await synthesize(text, language, voice);
   await saveSpeech(id, audio);
   return audio;
 }
